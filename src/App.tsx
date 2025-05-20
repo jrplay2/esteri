@@ -1,0 +1,1148 @@
+import React, { useState, useEffect, useRef } from 'react';
+import './App.css';
+
+// Tipos para os processos e passos
+interface Option {
+  type: 'checkbox' | 'radio';
+  label: string;
+  name?: string;
+  required?: boolean;
+}
+
+interface Step {
+  title: string;
+  description: string;
+  hasTimer: boolean;
+  timerDuration?: number;
+  options?: Option[];
+  allowImages?: boolean;
+  isFinal?: boolean;
+  position?: number;
+}
+
+interface Process {
+  name: string;
+  steps: Step[];
+}
+
+interface StepState {
+  status: 'pending' | 'completed' | 'error';
+  observation: string;
+  timerDuration: number | null;
+  hasTimer: boolean | null;
+  images: string[];
+  position?: number;
+}
+
+interface ProcessStatus {
+  completed: boolean;
+  steps: StepState[];
+}
+
+function App() {
+  // Dados dos processos
+  const [processes] = useState<Record<string, Process>>({
+    cip: {
+      name: "CIP",
+      steps: [
+        {
+          title: "Início - Água Estéril",
+          description: "",
+          hasTimer: true,
+          timerDuration: 60,
+          position: 1,
+          options: [
+            { type: "checkbox", label: "Esperar Esvaziamento", required: true }
+          ]
+        },
+        {
+          title: "Configurar Painel de rota para CIP",
+          description: "",
+          hasTimer: false,
+          allowImages: true,
+          position: 2
+        },
+        {
+          title: "Tirar o alarme de memória no painel",
+          description: "",
+          hasTimer: false,
+          position: 3
+        },
+        {
+          title: "Aguardar Pressão de Vapor",
+          description: "Confira na Caldeira a Pressão ela deve chegar a 8.0 kgf",
+          hasTimer: false,
+          position: 4
+        },
+        {
+          title: "Definir Tipo de CIP",
+          description: "",
+          hasTimer: false,
+          position: 5,
+          options: [
+            { type: "radio", name: "cip-type", label: "Soda+Ácido", required: true },
+            { type: "radio", name: "cip-type", label: "Soda", required: true },
+            { type: "radio", name: "cip-type", label: "Soda+Soda", required: true },
+            { type: "radio", name: "cip-type", label: "Soda+Soda+Ácido", required: true },
+            { type: "radio", name: "cip-type", label: "Enxague", required: true }
+          ]
+        },
+        {
+          title: "Enxague Inicial",
+          description: "",
+          hasTimer: false,
+          position: 6,
+          options: [
+            { type: "checkbox", label: "Ativar CIP da linha de retorno para abrir a valvula 15 e limpar a linha", required: true }
+          ]
+        },
+        {
+          title: "Tirar O Leite da Linha",
+          description: "",
+          hasTimer: false,
+          position: 7,
+          options: [
+            { type: "checkbox", label: "Na Plataforma Direcionar a Agua para Empurrar p leite", required: true },
+            { type: "checkbox", label: "Ligar o registro de agua para empurrar", required: true },
+            { type: "checkbox", label: "Direcionar o retorno do CIP", required: true }
+          ]
+        },
+        {
+          title: "Dosagem de soda (Aquecimento 1)",
+          description: "",
+          hasTimer: true,
+          timerDuration: 60,
+          position: 8
+        },
+        {
+          title: "Finalizar CIP da Linha",
+          description: "",
+          hasTimer: false,
+          position: 9
+        },
+        {
+          title: "TSL-71",
+          description: "Aguardar até que a temperatura chegue a 120°C",
+          hasTimer: false,
+          position: 10
+        },
+        {
+          title: "Dosagem de soda (Aquecimento 2)",
+          description: "",
+          hasTimer: false,
+          position: 11,
+          options: [
+            { type: "checkbox", label: "Esperar dosagem TSL-71 = 80°C", required: true }
+          ]
+        },
+        {
+          title: "Torre de Resfriamento",
+          description: "Ao entrar Soda Fria desligue a Torre",
+          hasTimer: false,
+          position: 12
+        },
+        {
+          title: "Limpeza Com soda",
+          description: "",
+          hasTimer: true,
+          timerDuration: 60,
+          position: 13
+        },
+        {
+          title: "Limpeza com Ácido",
+          description: "",
+          hasTimer: true,
+          timerDuration: 60,
+          position: 14
+        },
+        {
+          title: "Esvaziando Homogeneizador",
+          description: "",
+          hasTimer: true,
+          timerDuration: 60,
+          position: 15
+        },
+        {
+          title: "Enxague Final",
+          description: "",
+          hasTimer: true,
+          timerDuration: 60,
+          position: 16
+        },
+        {
+          title: "Parado",
+          description: "",
+          hasTimer: false,
+          position: 17
+        },
+        {
+          title: "Conferir vazamentos e limpeza do retardador",
+          description: "",
+          hasTimer: false,
+          position: 18
+        },
+        {
+          title: "Conferir os Amortecedores do Homogeneizador",
+          description: "",
+          hasTimer: false,
+          position: 19
+        },
+        {
+          title: "CIP Concluído",
+          description: "O processo de CIP foi concluído com sucesso.",
+          hasTimer: false,
+          isFinal: true,
+          position: 20
+        }
+      ]
+    },
+    aquecimento: {
+      name: "Aquecimento",
+      steps: [
+        {
+          title: "Mudar a Rota para Produção",
+          description: "",
+          hasTimer: false,
+          position: 1
+        },
+        {
+          title: "Resetar Alarme de Memória",
+          description: "",
+          hasTimer: false,
+          position: 2
+        },
+        {
+          title: "Esterilização",
+          description: "",
+          hasTimer: false,
+          position: 3
+        },
+        {
+          title: "Enxague",
+          description: "",
+          hasTimer: false,
+          position: 4
+        },
+        {
+          title: "Ligar a Torre",
+          description: "",
+          hasTimer: false,
+          position: 5,
+          options: [
+            { type: "checkbox", label: "Torre Ligada", required: true }
+          ]
+        },
+        {
+          title: "Aquecimento",
+          description: "",
+          hasTimer: false,
+          position: 6
+        },
+        {
+          title: "Ligar Registro do Tanque de Produto",
+          description: "",
+          hasTimer: false,
+          position: 7,
+          options: [
+            { type: "checkbox", label: "Esperar chegar até a placa", required: true }
+          ]
+        },
+        {
+          title: "Esterilização",
+          description: "Processo de esterilização concluído.",
+          hasTimer: false,
+          isFinal: true,
+          position: 8
+        }
+      ]
+    },
+    producao: {
+      name: "Produção",
+      steps: [
+        {
+          title: "Em desenvolvimento",
+          description: "O fluxo de Produção ainda está em desenvolvimento.",
+          hasTimer: false,
+          isFinal: true,
+          position: 1
+        }
+      ]
+    }
+  });
+
+  // Estado da aplicação
+  const [currentProcess, setCurrentProcess] = useState<string | null>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [processStatus, setProcessStatus] = useState<Record<string, ProcessStatus>>({
+    cip: { completed: false, steps: [] },
+    aquecimento: { completed: false, steps: [] },
+    producao: { completed: false, steps: [] }
+  });
+  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+  const [timerValue, setTimerValue] = useState(0);
+  const [showTreeModal, setShowTreeModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [observationText, setObservationText] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [showAlert, setShowAlert] = useState(false);
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showTimerAlert, setShowTimerAlert] = useState(false);
+  const [stepPosition, setStepPosition] = useState(0);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [autoSaveInterval, setAutoSaveInterval] = useState<NodeJS.Timeout | null>(null);
+
+  // Referências
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Inicialização
+  useEffect(() => {
+    // Inicializar status dos processos se não existirem no localStorage
+    const initialProcessStatus: Record<string, ProcessStatus> = {};
+    
+    for (const process in processes) {
+      initialProcessStatus[process] = {
+        completed: false,
+        steps: processes[process].steps.map((step) => ({
+          status: 'pending',
+          observation: '',
+          timerDuration: step.timerDuration || null,
+          hasTimer: step.hasTimer || null,
+          images: [],
+          position: step.position || 0
+        }))
+      };
+    }
+    
+    // Tentar carregar dados do localStorage
+    try {
+      const savedProcessStatus = localStorage.getItem('processStatus');
+      if (savedProcessStatus) {
+        setProcessStatus(JSON.parse(savedProcessStatus));
+      } else {
+        setProcessStatus(initialProcessStatus);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados do localStorage:", error);
+      setProcessStatus(initialProcessStatus);
+    }
+
+    // Criar elemento de áudio para o alarme
+    try {
+      const audioElement = document.createElement('audio');
+      audioElement.src = 'data:audio/wav;base64,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';
+      audioElement.loop = true;
+      alarmAudioRef.current = audioElement;
+    } catch (error) {
+      console.error("Erro ao criar elemento de áudio:", error);
+    }
+
+    // Configurar autosave a cada 2 segundos
+    const interval = setInterval(() => {
+      if (currentProcess && textareaRef.current && textareaRef.current.value !== '') {
+        autoSaveObservation();
+      }
+    }, 2000);
+    
+    setAutoSaveInterval(interval);
+
+    return () => {
+      // Limpar timer ao desmontar
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+      
+      // Limpar autosave ao desmontar
+      if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+      }
+      
+      // Parar áudio
+      if (alarmAudioRef.current) {
+        alarmAudioRef.current.pause();
+      }
+    };
+  }, [processes]);
+
+  // Salvar dados no localStorage quando o estado muda
+  useEffect(() => {
+    try {
+      localStorage.setItem('processStatus', JSON.stringify(processStatus));
+      
+      // Enviar para o servidor para persistência permanente
+      saveToServer();
+    } catch (error) {
+      console.error("Erro ao salvar dados no localStorage:", error);
+    }
+  }, [processStatus]);
+
+  // Atualizar observationText quando o passo muda
+  useEffect(() => {
+    if (currentProcess && processStatus[currentProcess].steps.length > currentStepIndex) {
+      setObservationText(processStatus[currentProcess].steps[currentStepIndex].observation || '');
+      
+      // Verificar se há imagens salvas para este passo
+      const savedImages = processStatus[currentProcess].steps[currentStepIndex].images;
+      if (savedImages && savedImages.length > 0) {
+        setImagePreview(savedImages[0]);
+      } else {
+        setImagePreview(null);
+      }
+    }
+  }, [currentProcess, currentStepIndex, processStatus]);
+
+  // Função para salvar dados no servidor
+  const saveToServer = async () => {
+    try {
+      // Simulação de envio para servidor
+      console.log("Dados salvos permanentemente no servidor:", processStatus);
+      
+      // Em um ambiente real, aqui seria feita uma chamada para uma API
+      // fetch('/api/save', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify(processStatus),
+      // });
+    } catch (error) {
+      console.error("Erro ao salvar dados no servidor:", error);
+    }
+  };
+
+  // Auto-salvar observação
+  const autoSaveObservation = () => {
+    if (!currentProcess) return;
+    
+    // Atualizar status do passo atual
+    setProcessStatus(prev => {
+      const newStatus = {...prev};
+      
+      // Garantir que o array de steps existe e tem o tamanho correto
+      if (!newStatus[currentProcess].steps || 
+          newStatus[currentProcess].steps.length !== processes[currentProcess].steps.length) {
+        newStatus[currentProcess].steps = processes[currentProcess].steps.map((step) => ({
+          status: 'pending',
+          observation: '',
+          timerDuration: step.timerDuration || null,
+          hasTimer: step.hasTimer || null,
+          images: [],
+          position: step.position || 0
+        }));
+      }
+      
+      // Atualizar apenas a observação
+      newStatus[currentProcess].steps[currentStepIndex].observation = observationText;
+      
+      return newStatus;
+    });
+  };
+
+  // Selecionar processo
+  const selectProcess = (processId: string) => {
+    setCurrentProcess(processId);
+    setCurrentStepIndex(0);
+    
+    // Carregar observação e imagem do primeiro passo
+    if (processStatus[processId].steps.length > 0) {
+      setObservationText(processStatus[processId].steps[0].observation || '');
+      
+      const savedImages = processStatus[processId].steps[0].images;
+      if (savedImages && savedImages.length > 0) {
+        setImagePreview(savedImages[0]);
+      } else {
+        setImagePreview(null);
+      }
+    } else {
+      setObservationText('');
+      setImagePreview(null);
+    }
+    
+    setSelectedImage(null);
+  };
+
+  // Iniciar timer
+  const startTimer = () => {
+    if (!currentProcess) return;
+    
+    const step = processes[currentProcess].steps[currentStepIndex];
+    
+    if (step.hasTimer && step.timerDuration) {
+      setTimerValue(step.timerDuration);
+      
+      const interval = setInterval(() => {
+        setTimerValue(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            setTimerInterval(null);
+            setShowTimerAlert(true);
+            if (alarmAudioRef.current) {
+              alarmAudioRef.current.play().catch(e => console.error("Erro ao tocar áudio:", e));
+              // Vibrar o dispositivo se suportado
+              if ('vibrate' in navigator) {
+                navigator.vibrate([200, 100, 200, 100, 200]);
+              }
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      setTimerInterval(interval);
+    }
+  };
+
+  // Verificar requisitos do passo
+  const checkStepRequirements = (): boolean => {
+    if (!currentProcess) return false;
+    
+    const step = processes[currentProcess].steps[currentStepIndex];
+    
+    // Verificar se o passo tem opções
+    if (step.options && step.options.length > 0) {
+      // Verificar checkboxes - todos são obrigatórios agora
+      const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+      for (let i = 0; i < checkboxes.length; i++) {
+        const checkbox = checkboxes[i] as HTMLInputElement;
+        if (!checkbox.checked) {
+          setErrorMessage(`Você deve marcar "${checkbox.nextElementSibling?.textContent}"`);
+          setShowErrorAlert(true);
+          return false;
+        }
+      }
+      
+      // Verificar radio buttons - pelo menos um do grupo deve estar selecionado
+      const radioGroups: Record<string, boolean> = {};
+      const radios = document.querySelectorAll('input[type="radio"]');
+      
+      for (let i = 0; i < radios.length; i++) {
+        const radio = radios[i] as HTMLInputElement;
+        if (radio.name) {
+          radioGroups[radio.name] = radioGroups[radio.name] || radio.checked;
+        }
+      }
+      
+      for (const group in radioGroups) {
+        if (!radioGroups[group]) {
+          setErrorMessage("Você deve selecionar uma das opções");
+          setShowErrorAlert(true);
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  };
+
+  // Completar passo
+  const completeStep = () => {
+    if (!currentProcess) return;
+    
+    // Auto-salvar observação atual
+    autoSaveObservation();
+    
+    // Verificar requisitos do passo
+    if (!checkStepRequirements()) {
+      return;
+    }
+    
+    // Atualizar status do passo atual
+    setProcessStatus(prev => {
+      const newStatus = {...prev};
+      
+      // Garantir que o array de steps existe e tem o tamanho correto
+      if (!newStatus[currentProcess].steps || 
+          newStatus[currentProcess].steps.length !== processes[currentProcess].steps.length) {
+        newStatus[currentProcess].steps = processes[currentProcess].steps.map((step) => ({
+          status: 'pending',
+          observation: '',
+          timerDuration: step.timerDuration || null,
+          hasTimer: step.hasTimer || null,
+          images: [],
+          position: step.position || 0
+        }));
+      }
+      
+      newStatus[currentProcess].steps[currentStepIndex].status = 'completed';
+      
+      // Salvar imagem se existir
+      if (imagePreview) {
+        newStatus[currentProcess].steps[currentStepIndex].images = [
+          ...newStatus[currentProcess].steps[currentStepIndex].images,
+          imagePreview
+        ];
+      }
+      
+      return newStatus;
+    });
+    
+    // Limpar timer se existir
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+    
+    // Parar alarme se estiver tocando
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.pause();
+      alarmAudioRef.current.currentTime = 0;
+    }
+    
+    // Verificar se é o último passo
+    const process = processes[currentProcess];
+    
+    if (currentStepIndex === process.steps.length - 1) {
+      // Marcar processo como concluído
+      setProcessStatus(prev => {
+        const newStatus = {...prev};
+        newStatus[currentProcess].completed = true;
+        return newStatus;
+      });
+      
+      showAlertMessage('Processo concluído com sucesso!');
+    } else {
+      // Avançar para o próximo passo
+      setCurrentStepIndex(prev => prev + 1);
+      
+      // Carregar observação e imagem do próximo passo
+      const nextIndex = currentStepIndex + 1;
+      if (processStatus[currentProcess].steps.length > nextIndex) {
+        setObservationText(processStatus[currentProcess].steps[nextIndex].observation || '');
+        
+        const savedImages = processStatus[currentProcess].steps[nextIndex].images;
+        if (savedImages && savedImages.length > 0) {
+          setImagePreview(savedImages[0]);
+        } else {
+          setImagePreview(null);
+        }
+      } else {
+        setObservationText('');
+        setImagePreview(null);
+      }
+      
+      setSelectedImage(null);
+    }
+    
+    setShowTimerAlert(false);
+  };
+
+  // Resetar processo atual
+  const resetCurrentProcess = () => {
+    if (!currentProcess) return;
+    
+    // Confirmar reset
+    if (window.confirm('Tem certeza que deseja resetar este processo? Todos os dados serão perdidos.')) {
+      // Resetar status do processo
+      setProcessStatus(prev => {
+        const newStatus = {...prev};
+        newStatus[currentProcess].completed = false;
+        newStatus[currentProcess].steps = processes[currentProcess].steps.map((step) => ({
+          status: 'pending',
+          observation: '',
+          timerDuration: step.timerDuration || null,
+          hasTimer: step.hasTimer || null,
+          images: [],
+          position: step.position || 0
+        }));
+        
+        return newStatus;
+      });
+      
+      // Voltar para o primeiro passo
+      setCurrentStepIndex(0);
+      setObservationText('');
+      setImagePreview(null);
+      setSelectedImage(null);
+      
+      // Limpar timer se existir
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        setTimerInterval(null);
+      }
+      
+      // Parar alarme se estiver tocando
+      if (alarmAudioRef.current) {
+        alarmAudioRef.current.pause();
+        alarmAudioRef.current.currentTime = 0;
+      }
+      
+      setShowTimerAlert(false);
+      showAlertMessage('Processo resetado com sucesso!');
+    }
+  };
+
+  // Mostrar alerta
+  const showAlertMessage = (message: string) => {
+    setAlertMessage(message);
+    setShowAlert(true);
+    
+    setTimeout(() => {
+      setShowAlert(false);
+    }, 3000);
+  };
+
+  // Fechar alerta de erro
+  const closeErrorAlert = () => {
+    setShowErrorAlert(false);
+  };
+
+  // Fechar alerta de timer
+  const closeTimerAlert = () => {
+    setShowTimerAlert(false);
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.pause();
+      alarmAudioRef.current.currentTime = 0;
+    }
+  };
+
+  // Manipular upload de imagem
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      // Limpar o input para evitar duplicações
+      event.target.value = '';
+      
+      // Processar múltiplos arquivos
+      Array.from(files).forEach(file => {
+        setSelectedImage(file);
+        
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const imageData = reader.result as string;
+          
+          // Salvar imagem imediatamente
+          if (currentProcess) {
+            setProcessStatus(prev => {
+              const newStatus = {...prev};
+              
+              // Garantir que o array de steps existe e tem o tamanho correto
+              if (!newStatus[currentProcess].steps || 
+                  newStatus[currentProcess].steps.length !== processes[currentProcess].steps.length) {
+                newStatus[currentProcess].steps = processes[currentProcess].steps.map((step) => ({
+                  status: 'pending',
+                  observation: '',
+                  timerDuration: step.timerDuration || null,
+                  hasTimer: step.hasTimer || null,
+                  images: [],
+                  position: step.position || 0
+                }));
+              }
+              
+              // Verificar se a imagem já existe para evitar duplicações
+              if (!newStatus[currentProcess].steps[currentStepIndex].images.includes(imageData)) {
+                // Adicionar imagem ao passo atual
+                newStatus[currentProcess].steps[currentStepIndex].images = [
+                  ...newStatus[currentProcess].steps[currentStepIndex].images,
+                  imageData
+                ];
+              }
+              
+              return newStatus;
+            });
+          }
+          
+          // Atualizar preview com a última imagem
+          setImagePreview(imageData);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+  
+  // Remover imagem do passo
+  const removeImage = (index: number) => {
+    if (currentProcess) {
+      setProcessStatus(prev => {
+        const newStatus = {...prev};
+        
+        // Remover a imagem do array
+        const newImages = [...newStatus[currentProcess].steps[currentStepIndex].images];
+        newImages.splice(index, 1);
+        
+        newStatus[currentProcess].steps[currentStepIndex].images = newImages;
+        
+        // Se a imagem atual estava sendo exibida no preview, limpar o preview
+        if (imagePreview === newStatus[currentProcess].steps[currentStepIndex].images[index]) {
+          setImagePreview('');
+        }
+        
+        return newStatus;
+      });
+    }
+  };
+
+  // Adicionar imagem ao passo
+  const addImageToStep = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Salvar configurações
+  const saveConfig = () => {
+    if (!currentProcess) return;
+    
+    // Atualizar posição do passo
+    if (stepPosition > 0) {
+      // Encontrar o passo com a posição desejada
+      const targetStepIndex = processes[currentProcess].steps.findIndex(
+        step => step.position === stepPosition
+      );
+      
+      if (targetStepIndex >= 0) {
+        // Trocar posições
+        const currentPosition = processes[currentProcess].steps[currentStepIndex].position || 0;
+        
+        // Atualizar posições
+        const updatedSteps = [...processes[currentProcess].steps];
+        updatedSteps[currentStepIndex].position = stepPosition;
+        updatedSteps[targetStepIndex].position = currentPosition;
+        
+        // Reordenar passos
+        updatedSteps.sort((a, b) => 
+          (a.position || 0) - (b.position || 0)
+        );
+        
+        // Atualizar índice atual
+        setCurrentStepIndex(stepPosition - 1);
+      }
+    }
+    
+    setShowConfigModal(false);
+    setStepPosition(0);
+  };
+
+  // Renderizar passo atual
+  const renderCurrentStep = () => {
+    if (!currentProcess) {
+      return (
+        <div className="step-content">
+          <p>Por favor, selecione uma das opções acima para iniciar o processo.</p>
+        </div>
+      );
+    }
+    
+    const process = processes[currentProcess];
+    const step = process.steps[currentStepIndex];
+    
+    // Garantir que o processStatus está inicializado corretamente
+    if (!processStatus[currentProcess].steps || 
+        processStatus[currentProcess].steps.length !== process.steps.length) {
+      return (
+        <div className="step-content">
+          <p>Carregando...</p>
+        </div>
+      );
+    }
+    
+    const stepState = processStatus[currentProcess].steps[currentStepIndex];
+    
+    return (
+      <>
+        <div className="step-content">
+          {step.description && <p>{step.description}</p>}
+          
+          {step.options && step.options.length > 0 && (
+            <div>
+              {step.options.map((option, index) => (
+                <div className="checkbox-option" key={index}>
+                  {option.type === 'checkbox' ? (
+                    <>
+                      <input 
+                        type="checkbox" 
+                        id={`option-${index}`} 
+                        data-required="true"
+                      />
+                      <label htmlFor={`option-${index}`}>{option.label}</label>
+                    </>
+                  ) : (
+                    <>
+                      <input 
+                        type="radio" 
+                        name={option.name} 
+                        id={`option-${index}`}
+                      />
+                      <label htmlFor={`option-${index}`}>{option.label}</label>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Exibição de múltiplas imagens */}
+          {stepState && stepState.images && stepState.images.length > 0 && (
+            <div className="image-gallery">
+              {stepState.images.map((img, index) => (
+                <div key={index} className="image-container" style={{ 
+                  width: `${Math.max(100 / Math.min(stepState.images.length, 4), 25)}%`,
+                  padding: '5px'
+                }}>
+                  <div className="image-preview">
+                    <img src={img} alt={`Imagem ${index + 1}`} />
+                    <button 
+                      className="remove-image-btn" 
+                      onClick={() => removeImage(index)}
+                      title="Remover imagem"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {step.hasTimer && (
+          <div className="progress-container">
+            <div 
+              className="progress-bar" 
+              style={{ 
+                width: `${(timerValue / (step.timerDuration || 60)) * 100}%` 
+              }}
+            ></div>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // Ordenar passos por posição
+  const getSortedSteps = (processId: string) => {
+    return [...processes[processId].steps].sort((a, b) => 
+      (a.position || 0) - (b.position || 0)
+    );
+  };
+  
+  // Renderização principal
+  return (
+    <div className="container">
+      <header>
+        <h1>Sistema de Esterilização</h1>
+        <h2>Uai Bonfim</h2>
+      </header>
+      
+      <div className="main-options">
+        <button 
+          className={`option-btn ${currentProcess === 'cip' ? 'active' : ''} ${processStatus.cip.completed ? 'completed' : ''}`} 
+          onClick={() => selectProcess('cip')}
+        >
+          CIP
+        </button>
+        <button 
+          className={`option-btn ${currentProcess === 'aquecimento' ? 'active' : ''} ${processStatus.aquecimento.completed ? 'completed' : ''}`} 
+          onClick={() => selectProcess('aquecimento')}
+        >
+          Aquecimento
+        </button>
+        <button 
+          className={`option-btn ${currentProcess === 'producao' ? 'active' : ''} ${processStatus.producao.completed ? 'completed' : ''}`} 
+          onClick={() => selectProcess('producao')}
+        >
+          Produção
+        </button>
+      </div>
+      
+      <div className="step-container">
+        <div className="step-title">
+          <h3>
+            {currentProcess 
+              ? processes[currentProcess].steps[currentStepIndex].title 
+              : "Selecione um processo para iniciar"}
+          </h3>
+          <button className="config-btn" onClick={() => setShowConfigModal(true)}>⚙️</button>
+        </div>
+        
+        {renderCurrentStep()}
+        
+        {currentProcess && (
+          <>
+            <div className="action-buttons">
+              {currentProcess && processes[currentProcess].steps[currentStepIndex].hasTimer && (
+                <button className="btn btn-primary" onClick={startTimer}>Iniciar</button>
+              )}
+              <button className="btn btn-success" onClick={completeStep}>Concluído</button>
+              <button className="btn btn-info" onClick={addImageToStep}>Adicionar Imagem</button>
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                style={{ display: 'none' }} 
+                accept="image/*" 
+                onChange={handleImageUpload}
+                multiple
+              />
+            </div>
+            
+            <div className="observation-box">
+              <h4>Observações:</h4>
+              <textarea 
+                ref={textareaRef}
+                placeholder="Digite suas observações aqui..." 
+                value={observationText}
+                onChange={(e) => setObservationText(e.target.value)}
+              ></textarea>
+              <div className="autosave-indicator">Salvamento automático ativado</div>
+            </div>
+          </>
+        )}
+      </div>
+      
+      <button className="btn btn-primary" onClick={() => setShowTreeModal(true)}>
+        Ver Árvore Completa
+      </button>
+      
+      {currentProcess && (
+        <button className="btn btn-danger" onClick={resetCurrentProcess}>
+          Resetar Processo
+        </button>
+      )}
+      
+      {/* Modal para Árvore Completa */}
+      {showTreeModal && (
+        <div className="modal" style={{ display: 'block' }}>
+          <div className="modal-content">
+            <span className="close" onClick={() => setShowTreeModal(false)}>&times;</span>
+            <h2>Árvore Completa de Passos</h2>
+            <ul className="tree-view">
+              {currentProcess && getSortedSteps(currentProcess).map((step, index) => {
+                // Verificar se processStatus está inicializado corretamente
+                if (!processStatus[currentProcess].steps || 
+                    processStatus[currentProcess].steps.length !== processes[currentProcess].steps.length) {
+                  return <li key={index}>{step.title} - Carregando...</li>;
+                }
+                
+                // Encontrar o índice correto no processStatus com base na posição
+                const statusIndex = processes[currentProcess].steps.findIndex(s => s.title === step.title);
+                
+                return (
+                  <li 
+                    key={index} 
+                    className={
+                      processStatus[currentProcess].steps[statusIndex].status === 'completed' 
+                        ? 'completed' 
+                        : processStatus[currentProcess].steps[statusIndex].status === 'error' 
+                          ? 'error' 
+                          : ''
+                    }
+                  >
+                    <span>{step.title}</span>
+                    <span 
+                      className={`status ${processStatus[currentProcess].steps[statusIndex].status}`}
+                    >
+                      {processStatus[currentProcess].steps[statusIndex].status === 'completed' 
+                        ? 'Concluído' 
+                        : processStatus[currentProcess].steps[statusIndex].status === 'error' 
+                          ? 'Erro' 
+                          : 'Pendente'}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal para Configurações */}
+      {showConfigModal && (
+        <div className="modal" style={{ display: 'block' }}>
+          <div className="modal-content">
+            <span className="close" onClick={() => setShowConfigModal(false)}>&times;</span>
+            <h2>Configurações do Passo</h2>
+            <div>
+              <div className="config-option">
+                <label htmlFor="timer-enabled">Ativar Temporizador:</label>
+                <input type="checkbox" id="timer-enabled" />
+              </div>
+              <div className="config-option">
+                <label htmlFor="timer-duration">Duração (segundos):</label>
+                <input type="number" id="timer-duration" min="1" defaultValue="60" />
+              </div>
+              <div className="config-option">
+                <label htmlFor="step-position">Posição do Passo:</label>
+                <input 
+                  type="number" 
+                  id="step-position" 
+                  min="1" 
+                  max={currentProcess ? processes[currentProcess].steps.length : 1}
+                  value={stepPosition}
+                  onChange={(e) => setStepPosition(parseInt(e.target.value))}
+                />
+              </div>
+              <button className="btn btn-primary" onClick={saveConfig}>Salvar Configurações</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Alerta */}
+      {showAlert && (
+        <div className="alert" style={{ display: 'block' }}>
+          {alertMessage}
+        </div>
+      )}
+      
+      {/* Alerta de Erro */}
+      {showErrorAlert && (
+        <div className="error-alert" style={{ 
+          display: 'block',
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: 'rgba(220, 53, 69, 0.9)',
+          color: 'white',
+          padding: '20px',
+          borderRadius: '5px',
+          zIndex: 2000,
+          textAlign: 'center'
+        }}>
+          <h3>Atenção!</h3>
+          <p>{errorMessage}</p>
+          <button 
+            className="btn btn-light" 
+            onClick={closeErrorAlert}
+            style={{ marginTop: '10px' }}
+          >
+            OK
+          </button>
+        </div>
+      )}
+      
+      {/* Alerta de Timer */}
+      {showTimerAlert && (
+        <div className="timer-alert" style={{ 
+          display: 'block',
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: 'rgba(220, 53, 69, 0.9)',
+          color: 'white',
+          padding: '20px',
+          borderRadius: '5px',
+          zIndex: 2000,
+          textAlign: 'center',
+          animation: 'blink 1s infinite'
+        }}>
+          <h3>Tempo Esgotado!</h3>
+          <p>O temporizador chegou ao fim.</p>
+          <button 
+            className="btn btn-light" 
+            onClick={closeTimerAlert}
+            style={{ marginTop: '10px' }}
+          >
+            OK
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
